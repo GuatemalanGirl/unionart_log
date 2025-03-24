@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>그림 감상하기</title>
+    <style>
+        body { 
+            margin: 0; 
+            height: 100vh; 
+            display: flex;
+            flex-direction: column;
+        }
+        canvas { 
+            display: block; 
+            flex-grow: 1; 
+        }
+        /* 버튼을 화면 하단에 고정시키기 */
+        .button-container {
+            position: fixed; /* 화면에 고정 */
+            bottom: 20px; /* 화면 하단에서 20px */
+            left: 50%; /* 화면 중앙에 배치 */
+            transform: translateX(-50%); /* 정확하게 중앙 정렬 */
+            display: flex;
+            justify-content: center; /* 버튼을 수평으로 중앙 정렬 */
+            z-index: 10; /* 다른 콘텐츠 위에 버튼이 오도록 설정 */
+        }
+        button {
+            padding: 10px 20px;
+            margin: 0 10px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <!-- 버튼을 하단에 배치 -->
+    <div class="button-container">
+        <button id="leftButton"><</button>
+        <button id="rightButton">></button>
+    </div>
+
+    <script src="https://unpkg.com/three@0.128.0/build/three.min.js"></script>
+    <script src="https://unpkg.com/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tween.js/18.6.4/tween.umd.js"></script> <!-- Tween.js 라이브러리 추가 -->
+
+    <script>
+        // 씬, 카메라, 렌더러 초기화
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        // 텍스처 로더
+        const textureLoader = new THREE.TextureLoader();
+
+        // 이미지 URL들
+        const imageURLs = [
+            'https://upload.wikimedia.org/wikipedia/commons/thumb/9/90/Edouard_Manet_-_Luncheon_on_the_Grass_-_Google_Art_Project.jpg/1024px-Edouard_Manet_-_Luncheon_on_the_Grass_-_Google_Art_Project.jpg', // 첫 번째 그림
+            'https://upload.wikimedia.org/wikipedia/commons/thumb/2/2d/Matisse_-_Green_Line.jpeg/800px-Matisse_-_Green_Line.jpeg', // 두 번째 그림
+            'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a4/Piet_Mondriaan%2C_1930_-_Mondrian_Composition_II_in_Red%2C_Blue%2C_and_Yellow.jpg/1024px-Piet_Mondriaan%2C_1930_-_Mondrian_Composition_II_in_Red%2C_Blue%2C_and_Yellow.jpg', // 세 번째 그림
+            'https://upload.wikimedia.org/wikipedia/commons/thumb/d/de/Egon_Schiele_075.jpg/800px-Egon_Schiele_075.jpg', // 네 번째 그림
+            'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5f/Edvard_Munch_-_Madonna_-_Google_Art_Project.jpg/800px-Edvard_Munch_-_Madonna_-_Google_Art_Project.jpg' // 다섯 번째 그림
+        ];
+
+        const planes = []; // 평면들을 저장할 배열
+        const radius = 20;  // 원의 반지름
+
+        // 텍스처 로드 후 각 그림을 3D 평면으로 표시
+        imageURLs.forEach((url, i) => {
+            const texture = textureLoader.load(url, () => {
+                const aspect = texture.image.width / texture.image.height; // 이미지의 비율 계산
+                const width = 5;  // 고정된 너비 (여기서 5로 설정, 필요에 따라 변경)
+                const height = width / aspect;  // 비율에 맞는 높이 계산
+
+                const geometry = new THREE.PlaneGeometry(width, height);  // 비율에 맞는 평면 크기
+                const material = new THREE.MeshBasicMaterial({ map: texture });
+                const plane = new THREE.Mesh(geometry, material);
+
+                // 원형 배치
+                const angle = (i / imageURLs.length) * Math.PI * 2;  // 각도 계산
+                plane.position.x = radius * Math.cos(angle); // X좌표
+                plane.position.z = radius * Math.sin(angle); // Z좌표
+                scene.add(plane);
+
+                planes.push(plane); // 평면 추가
+            });
+        });
+
+        // 카메라 위치 설정
+        camera.position.z = 20;
+
+        // OrbitControls 초기화 (마우스를 이용한 카메라 이동 및 회전)
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+
+        // 선택된 평면에 카메라가 초점을 맞추는 함수
+        function focusOnPlane(plane) {
+            const offset = 10;  // 카메라와 평면의 거리
+            new TWEEN.Tween(camera.position) // 카메라 위치를 부드럽게 변화시킴
+                .to({ x: plane.position.x, y: plane.position.y, z: plane.position.z + offset }, 1000) // 1초 동안 이동
+                .easing(TWEEN.Easing.Quadratic.Out) // 이징 함수로 부드러운 애니메이션 효과
+                .start();
+
+            new TWEEN.Tween(controls.target) // 카메라의 타겟도 부드럽게 변화
+                .to({ x: plane.position.x, y: plane.position.y, z: plane.position.z }, 1000) // 1초 동안 이동
+                .easing(TWEEN.Easing.Quadratic.Out)
+                .start();
+        }
+
+        // 평면을 왼쪽/오른쪽으로 선택하여 카메라가 그 평면을 볼 수 있도록 설정하는 함수
+        function moveAndFocusPlane(direction) {
+            const step = direction === 'left' ? -1 : 1;
+            const currentPlane = planes.shift();  // 첫 번째 평면을 배열에서 제거
+            planes.push(currentPlane);  // 배열의 끝으로 추가하여 평면 이동
+
+            // 평면의 이동 (X 방향으로 한 단계 이동)
+            new TWEEN.Tween(currentPlane.position) // 평면의 위치도 부드럽게 이동
+                .to({ x: currentPlane.position.x + step }, 1000) // 1초 동안 이동
+                .easing(TWEEN.Easing.Quadratic.Out)
+                .start();
+
+            // 카메라 이동: 이동된 평면의 정면을 화면에 보이도록 설정
+            focusOnPlane(currentPlane);
+        }
+
+        // 좌버튼과 우버튼 클릭 시 평면 이동 및 카메라 조정
+        document.getElementById('leftButton').addEventListener('click', () => {
+            moveAndFocusPlane('left');
+        });
+
+        document.getElementById('rightButton').addEventListener('click', () => {
+            moveAndFocusPlane('right');
+        });
+
+        // 애니메이션 함수
+        function animate() {
+            requestAnimationFrame(animate);
+            TWEEN.update(); // Tween.js의 애니메이션 업데이트
+            controls.update(); // 카메라 컨트롤을 업데이트
+            renderer.render(scene, camera);
+        }
+
+        animate();
+
+        // 윈도우 크기 변경 시 렌더러 크기 재조정
+        window.addEventListener('resize', () => {
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+        });
+    </script>
+</body>
+</html>

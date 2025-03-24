@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MY GALLERY</title>
+    <script src="https://unpkg.com/three@0.147.0/build/three.js"></script>
+    <script src="https://unpkg.com/three@0.147.0/examples/js/controls/PointerLockControls.js"></script>
+</head>
+<body>
+    <script>
+        // 씬(Scene) 생성
+        const scene = new THREE.Scene();  // Fixed typo here
+
+        // 카메라(Camera) 설정
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+
+        // 카메라 위치를 높여서 시점 변경
+        camera.position.set(0, 4, 10);  // y값을 15로 설정하여 더 높은 위치에서 씬을 바라보게 함
+
+        // 렌더러(Renderer) 설정
+        const renderer = new THREE.WebGLRenderer();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement); // 화면에 렌더러 출력
+
+        // 박스 객체 생성
+        const geometry = new THREE.BoxGeometry();
+        const material = new THREE.MeshStandardMaterial({ color: "blue" });
+        const cube = new THREE.Mesh(geometry, material);
+        scene.add(cube);
+
+        // Event Listener for when we press the keys
+        document.addEventListener('keydown', onKeyDown, false);
+
+        // texture of the floor
+        const floorTexture = new THREE.TextureLoader().load('https://as1.ftcdn.net/v2/jpg/02/98/69/76/1000_F_298697672_2SGKr4GBU6sjjU0XdU0UNT8wYii73wVw.jpg');
+
+        // 텍스처 타일링 설정
+        floorTexture.wrapS = floorTexture.wrapT = THREE.RepeatWrapping;
+        floorTexture.repeat.set(5, 5); // 텍스처를 5번 반복    
+
+        // create the floor plane
+        const planeGeometry = new THREE.PlaneGeometry(50, 50); // BoxGeometry is the shape of the object
+        const planeMaterial = new THREE.MeshStandardMaterial({
+            map: floorTexture,
+            side: THREE.DoubleSide
+        });
+
+        const floorPlane = new THREE.Mesh(planeGeometry, planeMaterial);
+        floorPlane.rotation.x = Math.PI / 2; // this is 90 degrees
+        floorPlane.position.y = -Math.PI; // this is -180 degrees
+
+        scene.add(floorPlane);
+
+        // Create the walls
+        const wallGroup = new THREE.Group(); // create a group to hold the walls
+        scene.add(wallGroup);
+
+        // Front wall
+        const frontWall = new THREE.Mesh(
+            new THREE.BoxGeometry(50, 20, 0.001),
+            new THREE.MeshStandardMaterial({ color: 'white'})
+        );
+        frontWall.position.z = -20;
+
+        // Back wall
+        const backWall = new THREE.Mesh(
+            new THREE.BoxGeometry(50, 20, 0.001),
+            new THREE.MeshStandardMaterial({ color: 'red'})
+        );
+        backWall.position.z = 20;
+
+        // Left Wall
+        const leftWall = new THREE.Mesh(
+            new THREE.BoxGeometry(50, 20, 0.001),
+            new THREE.MeshStandardMaterial({ color: 'white'})
+        );
+        leftWall.position.x = -20;
+        leftWall.rotation.y = Math.PI / 2; // this is 90 degrees
+
+        // Right Wall
+        const rightWall = new THREE.Mesh(
+            new THREE.BoxGeometry(50, 20, 0.001),
+            new THREE.MeshStandardMaterial({color: 'white'})
+        );
+        rightWall.position.x = 20;
+        rightWall.rotation.y = Math.PI / 2;
+
+        wallGroup.add(frontWall, backWall, leftWall, rightWall);
+
+        // Loop through each wall and create the bounding box
+        for (let i = 0; i < wallGroup.children.length; i++) {
+            wallGroup.children[i].BBox = new THREE.Box3();
+            wallGroup.children[i].BBox.setFromObject(wallGroup.children[i]);
+        }
+
+        // Create the ceiling
+        const ceilingGeometry = new THREE.PlaneGeometry(50, 50); // BoxGeometry is the shape the object
+        const ceilingMaterial = new THREE.MeshStandardMaterial({color: 'blue'});
+
+        const ceilingPlane = new THREE.Mesh(ceilingGeometry, ceilingMaterial);
+        ceilingPlane.rotation.x = Math.PI / 2; // this is 90 degree
+        ceilingPlane.position.y = 10;
+
+        scene.add(ceilingPlane);
+
+        // Painting 생성	
+
+        function createPainting(imageURL, position) {
+            const textureLoader = new THREE.TextureLoader();
+            // 텍스처 로드 후 처리
+    textureLoader.load(imageURL, function (texture) {
+        // 이미지 비율을 계산
+        const aspectRatio = texture.image.width / texture.image.height;
+
+        // 이미지의 비율에 맞게 PlaneGeometry의 크기 설정
+        const width = 10;  // 원하는 너비 설정 (예: 10 단위)
+        const height = width / aspectRatio;  // 비율에 맞는 높이 계산
+
+        // Material과 Geometry 생성
+        const paintingMaterial = new THREE.MeshStandardMaterial({ map: texture });
+        const paintingGeometry = new THREE.PlaneGeometry(width, height);
+
+        // Mesh 생성
+        const painting = new THREE.Mesh(paintingGeometry, paintingMaterial);
+        painting.position.set(position.x, position.y, position.z);
+
+        scene.add(painting);  // 씬에 추가
+    });
+}
+        const painting1 = createPainting(
+            'https://upload.wikimedia.org/wikipedia/commons/thumb/9/90/Edouard_Manet_-_Luncheon_on_the_Grass_-_Google_Art_Project.jpg/1024px-Edouard_Manet_-_Luncheon_on_the_Grass_-_Google_Art_Project.jpg',
+            new THREE.Vector3(-10, 5, -19)
+        );
+
+        const painting2 = createPainting(
+            'https://upload.wikimedia.org/wikipedia/commons/thumb/5/59/Monet_-_Impression%2C_Sunrise.jpg/280px-Monet_-_Impression%2C_Sunrise.jpg', 
+            new THREE.Vector3(10, 5, -19)
+        );
+
+        const painting3 = createPainting(
+            'https://upload.wikimedia.org/wikipedia/commons/thumb/2/2d/Matisse_-_Green_Line.jpeg/800px-Matisse_-_Green_Line.jpeg',
+            new THREE.Vector3(20, 5, -15)
+        );
+
+        // scene.add(painting1, painting2, painting3); // 필요없는 코드
+
+        // 빛 추가
+        const ambientLight = new THREE.AmbientLight(0x404040);  // 환경광 추가
+        scene.add(ambientLight);
+
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 1);  // 방향광 추가
+        directionalLight.position.set(0, 10, 10).normalize();
+        scene.add(directionalLight);
+
+        // Controls
+        const controls = new THREE.PointerLockControls(camera, document.body);
+
+        document.body.addEventListener('click', function() {
+   	    controls.lock();  // 마우스를 잠금
+	    }, false);
+
+        
+
+        // function when a key is pressed, execute this function
+        function onKeyDown(event) {
+            let keycode = event.which;
+
+            // right arrow key
+            if (keycode === 39 || keycode === 68  ) {
+                controls.moveRight(0.25)
+            }
+            // left arrow key
+            else if (keycode === 37 || keycode === 65 ) {
+                controls.moveRight(-0.25)
+            }
+            // up arrow key
+            else if (keycode === 38 || keycode === 87 ) {
+                controls.moveForward(0.25)
+            }
+            // down arrow key
+            else if (keycode === 40 || keycode === 83) {
+                controls.moveForward(-0.25)
+            }
+        }
+
+        // 카메라 이동
+        function moveCamera() {
+            camera.getWorldDrirection(direction);
+
+            // 방향키에 따른 카메라 이동
+            if (keys.forward) {
+                camera.position.addScaledVector(direction, moveSpeed);
+            }
+            if (keys.backward) {
+                camera.position.addScaledVector(direction, -moveSpeed);
+            }
+            if (keys.left) {
+                const left = new THREE.Vector3();
+                left.crossVectors(camera.up, direction);  // 왼쪽 벡터 계산
+                camera.position.addScaledVector(left, moveSpeed);
+            }
+            if (keys.right) {
+                const right = new THREE.Vector3();
+                right.crossVectors(direction, camera.up);  // 오른쪽 벡터 계산
+                camera.position.addScaledVector(right, moveSpeed);
+            }
+        }
+
+        // 카메라 위치 설정
+        camera.position.z = 10;
+
+        // 애니메이션 함수
+        function animate() {
+            requestAnimationFrame(animate);
+
+            // 객체 회전
+            cube.rotation.x += 0.01;
+            cube.rotation.y += 0.01;
+
+            // 씬을 렌더링
+            renderer.render(scene, camera);
+        }
+
+        // 애니메이션 시작
+        animate();
+
+        // 화면 크기 변경 시 처리
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>

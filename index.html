@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D 모델 띄우기</title>
+    <script src="https://unpkg.com/three@0.128.0/build/three.min.js"></script>
+    <script src="https://unpkg.com/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://unpkg.com/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+</head>
+<body>
+    <script>
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        renderer.setClearColor(0xffffff, 1);
+
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+
+        const textureLoader = new THREE.TextureLoader();
+        const texture = textureLoader.load('https://raw.githubusercontent.com/GuatemalanGirl/mygallery/refs/heads/main/paintings/campbells_soup.jpg');
+
+        const loader = new THREE.GLTFLoader();
+        loader.load('https://raw.githubusercontent.com/GuatemalanGirl/unionart_log/main/misagrey.glb', function (gltf) {
+            console.log(gltf);
+            scene.add(gltf.scene);
+            gltf.scene.scale.set(5, 5, 5);  // 모델 크기 적당히 조정
+            gltf.scene.position.set(0, -5, 0);  // 모델 위치 조정
+
+            gltf.scene.traverse((child) => {
+                if (child.isMesh) {
+                    child.material.map = texture;
+                    child.material.needsUpdate = true;
+                }
+            });
+        }, undefined, function (error) {
+            console.error("모델 로드 오류:", error);
+            alert("모델을 불러오는 데 실패했습니다.");
+        });
+
+        camera.position.set(0, 0, 15);
+
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+
+        const ambientLight = new THREE.AmbientLight(0x404040, 0.5);  // 부드러운 기본 조명
+        scene.add(ambientLight);
+
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 1);  // 강한 방향광
+        directionalLight.position.set(5, 5, 5);
+        scene.add(directionalLight);
+
+        const spotLight = new THREE.SpotLight(0xffffff, 2, 10, Math.PI / 6, 0.5);  // 스폿라이트로 집중 조명
+        spotLight.position.set(0, 5, 0);
+        scene.add(spotLight);
+
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        animate();
+
+        window.addEventListener('resize', function () {
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+        });
+    </script>
+</body>
+</html>

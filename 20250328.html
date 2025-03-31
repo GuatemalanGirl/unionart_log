@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Three.js Room with Pictures and Lights</title>
+    <style>
+        body { margin: 0; }
+        canvas { display: block; }
+    </style>
+</head>
+<body>
+    <script src="https://unpkg.com/three@0.128.0/build/three.min.js"></script>
+    <script src="https://unpkg.com/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script>
+        // 씬 생성
+        const scene = new THREE.Scene();
+
+        // 카메라 생성
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        
+        // 렌더러 생성
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        // 바닥 만들기
+        const floorGeometry = new THREE.PlaneGeometry(20, 20);
+        const floorMaterial = new THREE.MeshLambertMaterial({ color: 0x888888 });
+        const floor = new THREE.Mesh(floorGeometry, floorMaterial);
+        floor.rotation.x = -Math.PI / 2;  // 바닥은 수평으로
+        floor.position.y = -5;  // 바닥의 위치를 아래로 설정
+        scene.add(floor);
+
+        // 천장 만들기
+        const ceilingGeometry = new THREE.PlaneGeometry(20, 20);
+        const ceilingMaterial = new THREE.MeshLambertMaterial({ color: 0xcccccc });
+        const ceiling = new THREE.Mesh(ceilingGeometry, ceilingMaterial);
+        ceiling.rotation.x = Math.PI / 2;  // 천장은 수평으로
+        ceiling.position.y = 5;  // 천장의 위치를 위로 설정
+        scene.add(ceiling);
+
+        // 벽 만들기
+        const wallGeometry = new THREE.PlaneGeometry(20, 10);
+        const wallMaterial = new THREE.MeshLambertMaterial({ color: 0xaaaaaa });
+
+        // 앞 벽
+        const frontWall = new THREE.Mesh(wallGeometry, wallMaterial);
+        frontWall.position.z = -10;  // 방 앞에 위치
+        scene.add(frontWall);
+
+        // 뒤 벽
+        const backWall = new THREE.Mesh(wallGeometry, wallMaterial);
+        backWall.rotation.y = Math.PI;  // 반대 방향으로 회전
+        backWall.position.z = 10;  // 방 뒤에 위치
+        scene.add(backWall);
+
+        // 왼쪽 벽
+        const leftWall = new THREE.Mesh(wallGeometry, wallMaterial);
+        leftWall.rotation.y = Math.PI / 2;  // 왼쪽으로 회전
+        leftWall.position.x = -10;  // 방 왼쪽에 위치
+        scene.add(leftWall);
+
+        // 오른쪽 벽
+        const rightWall = new THREE.Mesh(wallGeometry, wallMaterial);
+        rightWall.rotation.y = -Math.PI / 2;  // 오른쪽으로 회전
+        rightWall.position.x = 10;  // 방 오른쪽에 위치
+        scene.add(rightWall);
+
+        // 텍스처 로더 생성
+        const textureLoader = new THREE.TextureLoader();
+
+        // 벽에 걸 그림
+        function addPictureToWall(wall, imageUrl, xPos, yPos, zPos) {
+            // 텍스처 로드
+            const texture = textureLoader.load(imageUrl, () => {
+                // 텍스처가 로드된 후 그림의 원래 비율을 가져옵니다
+                const aspectRatio = texture.image.width / texture.image.height;
+
+                // 그림(액자) 만들기 - 텍스처 비율에 맞는 크기 설정
+                const geometry = new THREE.PlaneGeometry(2 * aspectRatio, 2);  // 그림 크기 비율에 맞춰
+                const material = new THREE.MeshBasicMaterial({ map: texture });
+                const picture = new THREE.Mesh(geometry, material);
+
+                // 그림 위치 설정
+                picture.position.set(xPos, yPos, zPos);
+                wall.add(picture);
+            });
+        }
+
+        // 각 벽에 그림 추가
+        addPictureToWall(frontWall, 'https://raw.githubusercontent.com/GuatemalanGirl/mygallery/refs/heads/main/paintings/design_art.jpg', -3, 0, 0.01);  // 앞 벽의 왼쪽 상단
+        addPictureToWall(frontWall, 'https://raw.githubusercontent.com/GuatemalanGirl/mygallery/refs/heads/main/paintings/campbells_soup.jpg', 3, 0, 0.01);   // 앞 벽의 오른쪽 상단
+
+        addPictureToWall(backWall, 'https://raw.githubusercontent.com/GuatemalanGirl/mygallery/refs/heads/main/paintings/histoire_5.jpg', -3, 0, 0.01);   // 뒤 벽의 왼쪽 상단
+        addPictureToWall(backWall, 'https://raw.githubusercontent.com/GuatemalanGirl/mygallery/refs/heads/main/paintings/histoire_11.jpg', 3, 0, 0.01);    // 뒤 벽의 오른쪽 상단
+
+        addPictureToWall(leftWall, 'https://raw.githubusercontent.com/GuatemalanGirl/mygallery/refs/heads/main/paintings/reve_de_viille_3.jpg', -2, 0, 0.01);    // 왼쪽 벽의 중앙 상단
+        addPictureToWall(leftWall, 'https://raw.githubusercontent.com/GuatemalanGirl/mygallery/refs/heads/main/paintings/foundation_maeght.jpg', 2, 0, 0.01);   // 왼쪽 벽의 중앙 하단
+
+        addPictureToWall(rightWall, 'https://raw.githubusercontent.com/GuatemalanGirl/mygallery/refs/heads/main/paintings/miro_ceret.jpg', -2, 0, 0.01);   // 오른쪽 벽의 중앙 상단
+        addPictureToWall(rightWall, 'https://raw.githubusercontent.com/GuatemalanGirl/mygallery/refs/heads/main/paintings/diamond_dust_shoes.jpg', 2, 0, 0.01);  // 오른쪽 벽의 중앙 하단
+
+        // AmbientLight: 방 전체에 균일한 빛을 추가합니다
+        const ambientLight = new THREE.AmbientLight(0x404040, 1);  // 부드럽고 균일한 빛
+        scene.add(ambientLight);
+
+        // DirectionalLight: 방의 일부를 비추는 강한 빛
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+        directionalLight.position.set(5, 10, 5); // 빛의 위치 설정
+        scene.add(directionalLight);
+
+        // SpotLight: 특정 지역을 비추는 집중된 빛
+        const spotLight = new THREE.SpotLight(0xffffff, 1);
+        spotLight.position.set(0, 5, 0);  // SpotLight 위치
+        spotLight.target.position.set(0, 0, 0); // 목표 위치 설정 (방 중앙)
+        scene.add(spotLight);
+
+        // 카메라 위치 설정
+        camera.position.set(0, 0, 10);
+
+        // OrbitControls 적용
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;  // 부드러운 조작을 위한 댐핑 효과
+        controls.dampingFactor = 0.25;  // 댐핑의 강도
+        controls.screenSpacePanning = false;  // 화면 회전만 허용 (기본값)
+        controls.zoomSpeed = 2; // 마우스 휠 굴릴 때 더 빠르게 줌인/줌아웃
+
+        // 애니메이션 함수
+        function animate() {
+            requestAnimationFrame(animate);
+            // OrbitControls 업데이트
+            controls.update();  // 매 프레임마다 업데이트
+            renderer.render(scene, camera);
+        }
+
+        animate();
+
+        // 화면 크기 변경 시 카메라와 렌더러 크기 조정
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>

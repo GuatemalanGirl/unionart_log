@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>NAMI_BETA</title>
+  <style>
+    body {
+      margin: 0;
+      cursor: grab;
+    }
+
+    canvas {
+      display: block;
+    }
+
+    button {
+      font-size: 16px;
+      padding: 10px;
+      margin: 5px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <div style="position: absolute; top: 10px; left: 10px;">
+    <button id="leftButton">←</button>
+    <button id="rightButton">→</button>
+  </div>
+
+  <script src="https://unpkg.com/three@0.128.0/build/three.min.js"></script>
+  <script src="https://unpkg.com/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/tween.js/18.6.4/tween.umd.js"></script>
+
+  <script>
+    const paintingFilenames = [
+      'design_art.jpg', 'campbells_soup.jpg', 'foundation_maeght.jpg', 'reve_de_viille_3.jpg',
+      'diamond_dust_shoes.jpg', 'histoire_11.jpg', 'histoire_13.jpg', 'histoire_5.jpg',
+      'histoire_8.jpg', 'le_sarrasin.jpg', 'miro_ceret.jpg', 'reve_de_viille_3.jpg',
+      'histoire_13.jpg', 'campbells_soup.jpg', 'foundation_maeght.jpg', 'le_sarrasin.jpg'
+    ];
+
+    const paintingURLs = paintingFilenames.map(name =>
+      `https://raw.githubusercontent.com/GuatemalanGirl/mygallery/refs/heads/main/paintings/${name}`
+    );
+
+    const ROOM_WIDTH = 20;
+    const ROOM_HEIGHT = 8;
+    const ROOM_DEPTH = 20;
+    const CAMERA_FOV = 75;
+    const CAMERA_NEAR = 0.1;
+    const CAMERA_FAR = 1000;
+    const INITIAL_CAMERA_POS = new THREE.Vector3(0, ROOM_HEIGHT, ROOM_DEPTH * 1.5);
+    const ZOOM_DISTANCE = 3;
+    const CAMERA_DURATION = 1000;
+    const PAINTING_WIDTH_LIMIT = ROOM_WIDTH / 4;
+    const PAINTING_HEIGHT_LIMIT = ROOM_HEIGHT / 3;
+    const PAINTING_Y_OFFSET = 0;
+    const WALL_OFFSET = 0.01;
+
+    let scene, camera, renderer, controls, raycaster, pointer;
+    let paintings = [];
+    let currentPaintingIndex = -1;
+    let isCameraMoving = false;
+
+    const textureLoader = new THREE.TextureLoader();
+
+    async function init() {
+      scene = new THREE.Scene();
+      scene.background = new THREE.Color(0xFF8B79);
+
+      camera = new THREE.PerspectiveCamera(CAMERA_FOV, window.innerWidth / window.innerHeight, CAMERA_NEAR, CAMERA_FAR);
+      camera.position.copy(INITIAL_CAMERA_POS);
+      camera.lookAt(0, PAINTING_Y_OFFSET, 0);
+
+      renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      document.body.appendChild(renderer.domElement);
+
+      controls = new THREE.OrbitControls(camera, renderer.domElement);
+      controls.target.set(0, PAINTING_Y_OFFSET, 0);
+      controls.update();
+
+      raycaster = new THREE.Raycaster();
+      pointer = new THREE.Vector2();
+
+      createRoom();
+      await placePaintings();
+      addLights();
+
+      document.getElementById('leftButton').addEventListener('click', navigateLeft);
+      document.getElementById('rightButton').addEventListener('click', navigateRight);
+      renderer.domElement.addEventListener('click', onClick);
+      renderer.domElement.addEventListener('mousemove', onMouseMove);
+      window.addEventListener('resize', onResize);
+
+      // grabbing 커서 제어
+      controls.addEventListener('start', () => {
+        document.body.style.cursor = 'grabbing';
+      });
+      controls.addEventListener('end', () => {
+        document.body.style.cursor = 'grab';
+      });
+
+      animate();
+    }
+
+    function createRoom() {
+      const textures = {
+        floor: textureLoader.load('https://raw.githubusercontent.com/GuatemalanGirl/mygallery/main/textures/room6/floor6.png'),
+        ceiling: textureLoader.load('https://raw.githubusercontent.com/GuatemalanGirl/mygallery/main/textures/room6/ceiling6.png'),
+        front: textureLoader.load('https://raw.githubusercontent.com/GuatemalanGirl/mygallery/main/textures/room6/walls6.png'),
+        back: textureLoader.load('https://raw.githubusercontent.com/GuatemalanGirl/mygallery/main/textures/room6/walls6.png'),
+        left: textureLoader.load('https://raw.githubusercontent.com/GuatemalanGirl/mygallery/main/textures/room6/walls6.png'),
+        right: textureLoader.load('https://raw.githubusercontent.com/GuatemalanGirl/mygallery/main/textures/room6/wall6.png'),
+      };
+
+      const floor = new THREE.Mesh(new THREE.PlaneGeometry(ROOM_WIDTH, ROOM_DEPTH), new THREE.MeshStandardMaterial({ map: textures.floor }));
+      floor.rotation.x = -Math.PI / 2;
+      floor.position.y = -ROOM_HEIGHT / 2;
+      scene.add(floor);
+
+      const ceiling = new THREE.Mesh(new THREE.PlaneGeometry(ROOM_WIDTH, ROOM_DEPTH), new THREE.MeshStandardMaterial({ map: textures.ceiling }));
+      ceiling.rotation.x = Math.PI / 2;
+      ceiling.position.y = ROOM_HEIGHT / 2;
+      scene.add(ceiling);
+
+      const back = new THREE.Mesh(new THREE.PlaneGeometry(ROOM_WIDTH, ROOM_HEIGHT), new THREE.MeshStandardMaterial({ map: textures.back }));
+      back.position.z = -ROOM_DEPTH / 2;
+      back.position.y = PAINTING_Y_OFFSET;
+      scene.add(back);
+
+      const front = new THREE.Mesh(new THREE.PlaneGeometry(ROOM_WIDTH, ROOM_HEIGHT), new THREE.MeshStandardMaterial({ map: textures.front }));
+      front.rotation.y = Math.PI;
+      front.position.z = ROOM_DEPTH / 2;
+      front.position.y = PAINTING_Y_OFFSET;
+      scene.add(front);
+
+      const left = new THREE.Mesh(new THREE.PlaneGeometry(ROOM_DEPTH, ROOM_HEIGHT), new THREE.MeshStandardMaterial({ map: textures.left }));
+      left.rotation.y = Math.PI / 2;
+      left.position.x = -ROOM_WIDTH / 2;
+      left.position.y = PAINTING_Y_OFFSET;
+      scene.add(left);
+
+      const right = new THREE.Mesh(new THREE.PlaneGeometry(ROOM_DEPTH, ROOM_HEIGHT), new THREE.MeshStandardMaterial({ map: textures.right }));
+      right.rotation.y = -Math.PI / 2;
+      right.position.x = ROOM_WIDTH / 2;
+      right.position.y = PAINTING_Y_OFFSET;
+      scene.add(right);
+    }
+
+    async function loadAndAddPainting(url, position, rotationY, order) {
+      return new Promise((resolve, reject) => {
+        textureLoader.load(url, (texture) => {
+          const aspect = texture.image.width / texture.image.height;
+          let width = PAINTING_WIDTH_LIMIT;
+          let height = width / aspect;
+          if (height > PAINTING_HEIGHT_LIMIT) {
+            height = PAINTING_HEIGHT_LIMIT;
+            width = height * aspect;
+          }
+
+          const geo = new THREE.PlaneGeometry(width, height);
+          const mat = new THREE.MeshStandardMaterial({ map: texture });
+          const mesh = new THREE.Mesh(geo, mat);
+          mesh.position.copy(position);
+          mesh.rotation.y = rotationY;
+          mesh.userData.isPainting = true;
+          mesh.userData.order = order;
+          scene.add(mesh);
+          paintings.push(mesh);
+          resolve();
+        }, undefined, reject);
+      });
+    }
+
+    async function placePaintings() {
+      const wallDefs = [
+        { axis: 'x', constVal: ROOM_DEPTH / 2 - WALL_OFFSET, width: ROOM_WIDTH, rotY: Math.PI, reverse: false },
+        { axis: 'z', constVal: ROOM_WIDTH / 2 - WALL_OFFSET, width: ROOM_DEPTH, rotY: -Math.PI / 2, reverse: true },
+        { axis: 'x', constVal: -ROOM_DEPTH / 2 + WALL_OFFSET, width: ROOM_WIDTH, rotY: 0, reverse: true },
+        { axis: 'z', constVal: -ROOM_WIDTH / 2 + WALL_OFFSET, width: ROOM_DEPTH, rotY: Math.PI / 2, reverse: false }
+      ];
+
+      const paintingsPerWall = 4;
+      let globalIndex = 0;
+
+      for (const wall of wallDefs) {
+        const start = -wall.width / 2 + wall.width / (paintingsPerWall * 2);
+        const spacing = wall.width / paintingsPerWall;
+
+        for (let i = 0; i < paintingsPerWall; i++) {
+          const position = new THREE.Vector3();
+          const localIndex = wall.reverse ? (paintingsPerWall - 1 - i) : i;
+
+          if (wall.axis === 'x') {
+            position.x = start + localIndex * spacing;
+            position.z = wall.constVal;
+          } else {
+            position.z = start + localIndex * spacing;
+            position.x = wall.constVal;
+          }
+
+          position.y = PAINTING_Y_OFFSET;
+
+          await loadAndAddPainting(paintingURLs[globalIndex], position, wall.rotY, globalIndex);
+          globalIndex++;
+        }
+      }
+
+      paintings.sort((a, b) => a.userData.order - b.userData.order);
+    }
+
+    function addLights() {
+      scene.add(new THREE.HemisphereLight(0xffffff, 0x444444, 0.6));
+      scene.add(new THREE.AmbientLight(0xffffff, 0.3));
+      const dLight = new THREE.DirectionalLight(0xffffff, 0.2);
+      dLight.position.set(0, 10, 5);
+      scene.add(dLight);
+    }
+
+    function onResize() {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+
+    function onClick(event) {
+      pointer.x = (event.clientX / window.innerWidth) * 2 - 1;
+      pointer.y = -(event.clientY / window.innerHeight) * 2 + 1;
+      raycaster.setFromCamera(pointer, camera);
+      const hits = raycaster.intersectObjects(paintings);
+      if (hits.length > 0) {
+        const mesh = hits[0].object;
+        currentPaintingIndex = paintings.indexOf(mesh);
+        zoomTo(mesh);
+      }
+    }
+
+    function onMouseMove(event) {
+      pointer.x = (event.clientX / window.innerWidth) * 2 - 1;
+      pointer.y = -(event.clientY / window.innerHeight) * 2 + 1;
+      raycaster.setFromCamera(pointer, camera);
+      const intersects = raycaster.intersectObjects(paintings);
+
+      document.body.style.cursor = intersects.length > 0 ? 'pointer' : (controls.dragging ? 'grabbing' : 'grab');
+    }
+
+    function navigateLeft() {
+      if (paintings.length === 0 || isCameraMoving) return;
+      currentPaintingIndex = (currentPaintingIndex + 1 + paintings.length) % paintings.length;
+      zoomTo(paintings[currentPaintingIndex]);
+    }
+
+    function navigateRight() {
+      if (paintings.length === 0 || isCameraMoving) return;
+      currentPaintingIndex = (currentPaintingIndex - 1 + paintings.length) % paintings.length;
+      zoomTo(paintings[currentPaintingIndex]);
+    }
+
+    function zoomTo(painting) {
+      if (!painting) return;
+
+      const target = painting.position.clone();
+      const forward = new THREE.Vector3(0, 0, 1).applyQuaternion(painting.quaternion);
+      const newCamPos = target.clone().addScaledVector(forward, ZOOM_DISTANCE);
+      newCamPos.y = PAINTING_Y_OFFSET;
+
+      const startPos = camera.position.clone();
+      const startLook = controls.target.clone();
+      const endLook = target.clone();
+
+      let camTween = { ...startPos };
+      let lookTween = { ...startLook };
+
+      isCameraMoving = true;
+      controls.enabled = false;
+
+      new TWEEN.Tween(camTween)
+        .to(newCamPos, CAMERA_DURATION)
+        .easing(TWEEN.Easing.Cubic.InOut)
+        .onUpdate(() => {
+          camera.position.set(camTween.x, camTween.y, camTween.z);
+        })
+        .start();
+
+      new TWEEN.Tween(lookTween)
+        .to(endLook, CAMERA_DURATION)
+        .easing(TWEEN.Easing.Cubic.InOut)
+        .onUpdate(() => {
+          controls.target.set(lookTween.x, lookTween.y, lookTween.z);
+          controls.update();
+        })
+        .onComplete(() => {
+          isCameraMoving = false;
+          controls.enabled = true;
+        })
+        .start();
+    }
+
+    function animate() {
+      requestAnimationFrame(animate);
+      TWEEN.update();
+      renderer.render(scene, camera);
+    }
+
+    init();
+  </script>
+</body>
+</html>
